@@ -5,7 +5,7 @@ publish:
 
 %%
 date:: [[2024-09-16]]
-parent:: 
+parent::
 %%
 
 # [[STP]]
@@ -77,21 +77,22 @@ Before delving into STP process further lets see how it communicates and what's 
 ![[Pasted image 20240919211320.png]]
 
 **Message/BPDU Types** For PVST+ and 802.1d are:
+
 - **Configuration.** Originated by RBs and they propagate throughout the network in the DP to RP direction. Information in this enables ST to build the loop topology.
 - **Topology Change.** Originated by non-RBs to notify the RB there's been a topology change. Sent from root ports and only contain protocol ID, version and type fields, the rest of the fields are omitted.
 **Flags** In STP there's only 2 options.
 - **Topology Change**: Use by root bridges after when they receive a TC BPDU.
 - **Topology Change Ack** Used by non root bridges to Ack the receipt of a TC BPDU.
 **Root ID** is the Bridge ID of the root switch.
-	802.1D Priority + MAC.
+  802.1D Priority + MAC.
 	Per VLAN STP and MST uses Priority + System Extension ID + MAC
-**Root Path Cost** (RPC) is the total cost of the links traversed to get to the RB. Ports costs are based on port speed and when a switch receives a [[#Superior BPDUs]] it adds the link cost of the port the BPDU was received to get it's RPC. The RB RPC is 0 so its BPDUs are sent with a RPC of 0. 
+**Root Path Cost** (RPC) is the total cost of the links traversed to get to the RB. Ports costs are based on port speed and when a switch receives a [[#Superior BPDUs]] it adds the link cost of the port the BPDU was received to get it's RPC. The RB RPC is 0 so its BPDUs are sent with a RPC of 0.
 **Bridge ID (BID)** Uniquely identifies each switch and is 8 bytes long.
 - IEEE 802.1D (2 bytes *priority* + 6 byte switches base *mac* address)
 	- **Priority** is 2 bytes and the default value is **32768**. The priority range is 0-65535.
 - PVST+ (Only 4 bits for *priority* (12 bits taken for the *VLAN ID*) + 6 byte switches base *mac* address)
 	- Priority can only be set in increments of 4096, default is still 32768
-**Port ID** priority (4 bits) + ID (Interface number) (12 bits); the default port priority is 128, set as multiples of 16 in the range 0-255. Port priority is used to in a tiebreaker and used to influence the preferred root port of a downstream switch. 
+**Port ID** priority (4 bits) + ID (Interface number) (12 bits); the default port priority is 128, set as multiples of 16 in the range 0-255. Port priority is used to in a tiebreaker and used to influence the preferred root port of a downstream switch.
 **Timers** can be set on non-RB switches but are overwritten with the settings here. The settings are:
 - **Max Age Timer** is (20 seconds default) the length of time a switch considers BPDUs to be valid. The timer is reset whenever a new BPDU is received and when it expires the port will change state.
 - **Hello time** (default 2s) is the config BPDU send interval
@@ -112,7 +113,7 @@ So now you know some more lingo you can actually work out the spanning tree topo
 
 All ports start at the blocking and work their way through states.
 
-- *Blocking* lasts for *20 seconds* and ensures used to provide stability. 
+- *Blocking* lasts for *20 seconds* and ensures used to provide stability.
 - *Listening* lasts for *15 seconds*
 	- Is where *STP works out the topology*
 	- Ports that lose the DP election become non-DPs and move to a Blocking state.
@@ -136,45 +137,31 @@ All ports start at the blocking and work their way through states.
 ## PVST+
 
 - You simply get an STP instance for every VLAN including VLAN 1.
-
 - In **PVST+**, when you block a VLAN on a trunk link due to Spanning Tree, you are **blocking the VLAN's traffic** for that trunk, not the entire interface. The port itself remains up and operational for other VLANs that are **not** blocked, allowing traffic for those VLANs to continue to flow.
-
 - This **VLAN-specific blocking** ensures that only the problematic VLAN is affected, while other VLANs using the same trunk can still operate normally. This behaviour is a key advantage of PVST+ compared to a single-instance spanning tree that would block the entire interface.
-
 - For **access ports**, it's the interface that is blocked, whereas on **trunk ports**, PVST+ blocks traffic on the VLAN not the interface.
-
 - All PVST+ BPDUs are sent via the native VLAN.
 
 ## Root Bridge Election
 
 - All switches are in the *Listening* state and *sending* Configuration *BPDUs* every 2s.
-
-- They set the *RB-ID* using their their *BID*. 
-
+- They set the *RB-ID* using their their *BID*.
 - If BPDU RB-ID is < their BID, BPDU ignored.
-
-- If BPDU RB-ID is > their BID, accepts BPDU, stops sending it's own BPDUs, updates new RB, RPC, timers and forward betters BPDU with updated RPC. 
-
+- If BPDU RB-ID is > their BID, accepts BPDU, stops sending it's own BPDUs, updates new RB, RPC, timers and forward betters BPDU with updated RPC.
 - The width of the network determines the speed of conversion and the furthest distance hellos needs to travel. A 10 node ring would be a width of 4.
 
 ## Port Role Election
 
 - Once a switch has found it's RB it elected the port roles:
-
 - **Root Port** RP is the port the where the *best BPDU was received on*. Theres 1 per switch/spanning tree instance and always faces towards the direction of the RB.
-
 - **Designated Port** (DP) is sending the best BPDU on the link. There's 1 DP per *link*. All ports on the RB are DPs. RPC, BID and Port Cost may all need to be considered to calculate the DP for a link connecting to non-RBs.
-
-- **Non Designated (ND) or Blocking Port** All ports that are not a RP or DP become blocking ports. 
+- **Non Designated (ND) or Blocking Port** All ports that are not a RP or DP become blocking ports.
 
 ## Port Cost Values
 
 - All interfaces have a port cost based on the bandwidth. The values are used to make the Root Path Cost. Port costs can be manually altered for an interface but by default the are preset using what is known as short mode and uses (16 bit) number.
-
-- Short mode costs derive from the formula *20Gbps/interface bandwidth*. 
-
-- IEEE Revised Port Costs in IEEE 802.1t and created long mode which uses a 32-bit number with the formula *20Tbps/interface bandwidth*. 
-
+- Short mode costs derive from the formula *20Gbps/interface bandwidth*.
+- IEEE Revised Port Costs in IEEE 802.1t and created long mode which uses a 32-bit number with the formula *20Tbps/interface bandwidth*.
 - Port costs can be configured manually on each port but long mostly the default.
 
 | Data Rate               | Long Mode | Short Mode STP Cost |
@@ -195,7 +182,7 @@ Using short mode in a high speed network could mean ST converges in an undesired
 
 ## STP Timers
 
-The default STP timers are based on the diameter/length (*default 7* and max value) of the switching topology. Recommended way to adjust timers is to set length. 
+The default STP timers are based on the diameter/length (*default 7* and max value) of the switching topology. Recommended way to adjust timers is to set length.
 
 **Switches ignore their own timer configurations and learn the values from the root bridge** so that is where you would set them.
 
@@ -219,7 +206,7 @@ Timers need to expire in order for ports to transition through states and this c
 
 **Blocking to RP** (*direct link failure*) if a blocking port gets a better BPDU and doesn't have a RP it immediately ages out the inferior BPDU bypassing the max-age timer. It will transition the port to the listening state. E.g. If sw1 fails, sw2 sends sw3 blocking port better bpdu so it transitions to Listening. *Takes 30 seconds*.
 
-**Blocking to DP** If we stops receiving better BPDUs on a blocked port, still has a RP then there's been an *indirect failure*. E.g. If sw2 fails, sw5 is still getting BPDUs on RP but worse BPDUs from sw4, it transition a port to blocking and the best port to listening after the **Max Age** to ensure the link is stable. It's called an indirect failure and can take up-to *50s* to change.  
+**Blocking to DP** If we stops receiving better BPDUs on a blocked port, still has a RP then there's been an *indirect failure*. E.g. If sw2 fails, sw5 is still getting BPDUs on RP but worse BPDUs from sw4, it transition a port to blocking and the best port to listening after the **Max Age** to ensure the link is stable. It's called an indirect failure and can take up-to *50s* to change.
 
 ## Topology Changes
 
@@ -230,9 +217,9 @@ Timers need to expire in order for ports to transition through states and this c
 
 TC Process Steps:
 
-1. A bridge that detects a topology change sends a TC Type BPDU out its Root Port. 
+1. A bridge that detects a topology change sends a TC Type BPDU out its Root Port.
 2. The Designated Port for this segment acknowledges the BPDU by setting the **TCA** flag in it's next Confg BPDU.
-3. The next bridge also propagates the TCN BPDU out its Root Port. 
+3. The next bridge also propagates the TCN BPDU out its Root Port.
 4. When the TC BPDU reaches the Root Bridge it then sends it's config BPDUs with TC flag on until the Forward Delay + Max Age (25s) expires.
 5. As non root bridges receive the config BPDU with TC flag, they shorten their MAC table's aging period from 300s to that of the Forward Delay timer and inactive flows are then expired after 15s.
 
@@ -275,22 +262,22 @@ All switches flood the BPDUs from all ports (DPs) as they think they're RB. The 
 
 ## STP Design
 
-If you have a devices running in active/standby modes like a 2 FHRP routers then mirror the active standby states with STP using primary secondary STP root bridge priorities. 
+If you have a devices running in active/standby modes like a 2 FHRP routers then mirror the active standby states with STP using primary secondary STP root bridge priorities.
 
 ## STP Priortity Wording Confusion
 
 As with all Spanning Tree parameters, the lowest numeric Bridge ID value represents the highest priority. To avoid the potential confusion of lowest value and highest priority, this text always refers to values (in other words, the lower amount is preferred by STP). To put this another way don't talk about the STP priority just talk about the value!!!!
 
-Superior BPDU 4 step process:  
+Superior BPDU 4 step process:
 
-1. A lower Root BID  
+1. A lower Root BID
 2. A lower Root Path Cost
-3. A lower Sending BID  
+3. A lower Sending BID
 4. A lower Port ID
 
 ## Cisco Inter Vendor BPDU Interoperability
 
-Cisco's PVST+ (per VLAN 802.1d) sends IEEE BPDUs to `01:80:c2:00:00:00` for inter-vendor compatibility but it uses Cisco proprietary BPDUs to `0100.0ccc.cccd`. The IEEE BPDU does not carry any VLAN info. 
+Cisco's PVST+ (per VLAN 802.1d) sends IEEE BPDUs to `01:80:c2:00:00:00` for inter-vendor compatibility but it uses Cisco proprietary BPDUs to `0100.0ccc.cccd`. The IEEE BPDU does not carry any VLAN info.
 
 IEEE BPDU
 
@@ -387,8 +374,8 @@ Gi0/0               Desg BKN*4         128.1    P2p *PVID_Inc
 
 ## Load Balancing Between PVST+ and IEEE dot1q Switches CST
 
-- The PVST+ switches can load balance VLANs between switches within their region but when they trunk to the IEEE switches they have to send all VLANs down to the IEEE switches as support only 1 CST for all VLANs. 
-- We can't split VLANs across trunks as we're moving to a single instance and w're blocking whole interfaces not just the VLAN on an interface. 
+- The PVST+ switches can load balance VLANs between switches within their region but when they trunk to the IEEE switches they have to send all VLANs down to the IEEE switches as support only 1 CST for all VLANs.
+- We can't split VLANs across trunks as we're moving to a single instance and w're blocking whole interfaces not just the VLAN on an interface.
 ![[Pasted image 20240926220619.png]]
 
 Note that every switch:
@@ -482,19 +469,15 @@ show spanning-tree mst 0
 
 Cisco developed three proprietary features that improve PVST+ convergence time:
 
-• PortFast - For Access Ports straight to forwarding no topology changes sent for up/down
-
-• UplinkFast - Access Layer Switches Only, increases priority and cost, PVST only
-
-• BackboneFast - Recover faster from indirect link failures. PVST only and for all switches.
+- PortFast - For Access Ports straight to forwarding no topology changes sent for up/down
+- UplinkFast - Access Layer Switches Only, increases priority and cost, PVST only
+- BackboneFast - Recover faster from indirect link failures. PVST only and for all switches.
 
 Cisco implemented three mechanisms to protect the PVST+ topology:
 
-• Root Guard - For Root Bridges
-
-• Portfast BPDU Guard - For Access Ports errDisable no forwarding
-
-• PortFast BPDU Filtering - For Access Ports When Vital - disables STP
+- Root Guard - For Root Bridges
+- Portfast BPDU Guard - For Access Ports errDisable no forwarding
+- PortFast BPDU Filtering - For Access Ports When Vital - disables STP
 
 [[#Unidirectional Link Problem]]
 
@@ -604,8 +587,8 @@ show spanning-tree backbonefast
 
 - Root guard protects root ports to always be the root port.
 - If superior BPDU received on a RootGuard port it is placed in a *root-inconsistent* state, blocks traffic, still listens for BPDUs and automatically recovers as soon as superior BPDUs not received.
-- Root Guard is enabled on a per-port basis, and is disabled by default. 
-- **You cannot enable root guard and [[#Loop Guard]] on a port at the same time**. 
+- Root Guard is enabled on a per-port basis, and is disabled by default.
+- **You cannot enable root guard and [[#Loop Guard]] on a port at the same time**.
 ```js
 !
 ! If Loop Guard is enabled on a port, it disables Root Guard on the port and vice versa.
